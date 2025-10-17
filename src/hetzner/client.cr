@@ -43,7 +43,7 @@ class Hetzner::Client
     page = 1
 
     while true
-      success, response = get("/server_types", {page: page.to_s})
+      success, response = get("/server_types", {"page" => page.to_s})
 
       unless success
         puts "[Preflight checks] Unable to fetch instance types via Hetzner API"
