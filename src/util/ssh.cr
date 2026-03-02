@@ -92,7 +92,6 @@ class Util::SSH
     ssh_args = build_ssh_args(
       host_ip_address: host_ip_address,
       port: port,
-      command: command,
       use_ssh_agent: use_ssh_agent,
       log_level: log_level
     )
@@ -110,9 +109,13 @@ class Util::SSH
       setup_output_streams(instance.name, stdout, stderr, print_output, debug, disable_log_prefix)
     end
 
-    # Run the SSH command
+    # Feed the full command/script via stdin to avoid ARG_MAX / quoting / truncation issues
+    input = IO::Memory.new(command + "\n")
+
+    # Run the SSH command safely
     status = Process.run("ssh",
       args: ssh_args,
+      input: input,
       output: output_streams[:out],
       error: output_streams[:err]
     )
@@ -129,7 +132,7 @@ class Util::SSH
     stdout.to_s.strip
   end
 
-  private def build_ssh_args(host_ip_address, port, command, use_ssh_agent, log_level)
+  private def build_ssh_args(host_ip_address, port, use_ssh_agent, log_level)
     args = [
       "-o", "ConnectTimeout=#{DEFAULT_CONNECT_TIMEOUT}",
       "-o", "StrictHostKeyChecking=no",
@@ -148,8 +151,9 @@ class Util::SSH
       args.concat(["-i", private_ssh_key_path])
     end
 
-    # Add port, user@host, and command
-    args.concat(["-p", port.to_s, "root@#{host_ip_address}", command])
+    # Add port, user@host
+    # Command is fed via stdin to avoid hitting arg bytes size limits
+    args.concat(["-p", port.to_s, "root@#{host_ip_address}", "bash", "-s"])
 
     args
   end
